@@ -1,0 +1,44 @@
+name: Publish Markdown to HTML
+
+on:
+  push:
+    branches: [ main, feature-* ]
+    paths:
+      - 'posts/**/*.md'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Pandoc
+      uses: r-lib/actions/setup-pandoc@v2
+      with:
+        pandoc-version: '2.19.2'
+    
+    - name: Create output directory
+      run: mkdir -p pages
+      
+    - name: Convert Markdown to HTML
+      run: |
+        for file in posts/*.md; do
+          filename=$(basename "$file" .md)
+          pandoc "$file" \
+            -f markdown \
+            -t html \
+            -o "pages/${filename}.html" \
+            --standalone \
+            --metadata-file=<(grep -m 1 -A 3 "^---" "$file" | tail -n +2)
+        done
+    
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add pages/
+        git commit -m "Generate HTML from markdown" || echo "No changes to commit"
+        git push
